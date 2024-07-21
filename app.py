@@ -81,6 +81,7 @@ def process_calendar(temp_file_path, task_id):
                 del task_queue[task_id]
 
 def run_worker():
+    global task_queue
     while True:
         try:
             with queue_lock:
@@ -103,6 +104,7 @@ worker_thread.start()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    global task_queue
     if request.method == 'POST':
         logger.debug("POST request received")
         if 'file' not in request.files:
