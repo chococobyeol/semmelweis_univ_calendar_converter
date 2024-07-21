@@ -96,13 +96,16 @@ def run_worker():
                         if task_id not in task_results:
                             logger.debug(f"Starting to process task {task_id}")
                             await process_calendar(file_path, task_id)
+                            break  # Ensure only one task is processed at a time
                 else:
                     logger.debug("No tasks in queue. Worker thread sleeping.")
                 await asyncio.sleep(5)
             except Exception as e:
                 logger.error(f"Error in worker thread: {e}", exc_info=True)
 
-    asyncio.run(async_worker())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(async_worker())
 
 worker_thread = threading.Thread(target=run_worker, daemon=True)
 worker_thread.start()
@@ -126,6 +129,8 @@ def index():
             task_id = str(uuid.uuid4())
             task_queue[task_id] = temp_file_path
             task_progress[task_id] = 0
+            
+            logger.debug(f"Task queue: {task_queue}")
             
             if len(task_queue) > MAX_TASKS:
                 oldest_task = next(iter(task_queue))
@@ -247,4 +252,4 @@ if __name__ == '__main__':
     update_thread.start()
 
     # Start the Flask app
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
