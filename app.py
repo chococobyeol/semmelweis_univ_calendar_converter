@@ -161,14 +161,18 @@ def fetch_classroom_data():
     url = "https://semmelweis.hu/registrar/information/classroom-finder/"
     for attempt in range(MAX_RETRIES):
         try:
+            logger.info(f"Fetching classroom data, attempt {attempt + 1}/{MAX_RETRIES}")
             response = requests.get(url, timeout=60)
             response.raise_for_status()
+            logger.info("Successfully fetched classroom data")
             return response.text
         except requests.RequestException as e:
             logger.error(f"Error fetching data: {e}")
-            logger.debug(f"Retrying in {RETRY_DELAY} seconds... (Attempt {attempt + 1}/{MAX_RETRIES})")
-            time.sleep(RETRY_DELAY)
-    logger.error("Maximum retries reached. Failed to fetch data.")
+            if attempt < MAX_RETRIES - 1:
+                logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                time.sleep(RETRY_DELAY)
+            else:
+                logger.error("Maximum retries reached. Failed to fetch data.")
     return None
 
 def parse_classroom_data(html):
@@ -195,29 +199,36 @@ def parse_classroom_data(html):
 
 def initialize_and_update_data():
     global CLASSROOM_DATA
-    logger.debug("Starting classroom data initialization and update")
+    logger.info("Starting classroom data initialization and update")
     html = fetch_classroom_data()
     if html:
         CLASSROOM_DATA = parse_classroom_data(html)
-        logger.debug(f"Classroom data updated with {len(CLASSROOM_DATA)} records")
-        logger.debug(f"Sample classroom data: {CLASSROOM_DATA[:5]}")  # Log first 5 items
+        logger.info(f"Classroom data updated with {len(CLASSROOM_DATA)} records")
+        logger.debug(f"Sample classroom data: {CLASSROOM_DATA[:5]}")
     else:
         logger.error("Failed to fetch classroom data after multiple retries.")
-    logger.debug("Classroom data initialization and update completed")
+    logger.info("Classroom data initialization and update completed")
 
 def update_data_periodically(interval):
     while True:
         initialize_and_update_data()
-        logger.debug(f"Sleeping for {interval} seconds before the next update.")
+        logger.info(f"Sleeping for {interval} seconds before the next update.")
         time.sleep(interval)
 
 if __name__ == '__main__':
-    logger.debug("Application starting")
+    logger.info("Application starting")
     initialize_and_update_data()
 
     update_interval = 300  # 5 minutes in seconds
     update_thread = threading.Thread(target=update_data_periodically, args=(update_interval,), daemon=True)
     update_thread.start()
+
+    # Wait for the data to be loaded
+    while not CLASSROOM_DATA:
+        logger.info("Waiting for classroom data to be loaded...")
+        time.sleep(5)
+
+    logger.info(f"Classroom data loaded with {len(CLASSROOM_DATA)} records")
 
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
