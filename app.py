@@ -79,28 +79,6 @@ def process_calendar(temp_file_path, task_id):
             if task_id in task_queue:
                 del task_queue[task_id]
 
-def run_worker():
-    global task_queue
-    while True:
-        try:
-            with queue_lock:
-                logger.debug(f"Worker thread running. Current task queue: {list(task_queue.keys())}")
-                if task_queue:
-                    task_id, file_path = next(iter(task_queue.items()))
-                    logger.debug(f"Starting to process task {task_id}")
-                else:
-                    logger.debug("No tasks in queue. Worker thread sleeping.")
-                    time.sleep(5)
-                    continue
-
-            process_calendar(file_path, task_id)
-        except Exception as e:
-            logger.error(f"Error in worker thread: {e}", exc_info=True)
-        time.sleep(1)  # Add a small delay to prevent excessive CPU usage
-
-worker_thread = threading.Thread(target=run_worker, daemon=True)
-worker_thread.start()
-
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global task_queue
@@ -133,6 +111,9 @@ def index():
                     oldest_task = next(iter(task_queue))
                     del task_queue[oldest_task]
                     del task_progress[oldest_task]
+                
+                # 작업 큐에 추가된 후 즉시 작업 처리를 시도
+                threading.Thread(target=process_calendar, args=(temp_file_path, task_id)).start()
                 
                 return jsonify({'task_id': task_id})
             except Exception as e:
