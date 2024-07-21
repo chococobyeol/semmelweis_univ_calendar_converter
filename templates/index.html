@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Converter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Calendar Converter</h1>
+        <p class="subtext">for Semmelweis Univ.</p>
+        <form id="upload-form" action="/" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".ics" id="file-input">
+            <div id="button-container">
+                <button type="submit" id="convert-btn">Convert</button>
+                <div id="progress-container" style="display: none;">
+                    <div id="progress-bar">
+                        <span id="progress-text"></span>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="coffee-container">
+        <a href="https://www.buymeacoffee.com/chococo" target="_blank">
+            <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;">
+        </a>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
