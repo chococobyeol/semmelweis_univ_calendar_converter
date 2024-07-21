@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentProgress = 0;
     let targetProgress = 0;
 
+    // 폼 제출 이벤트 리스너를 추가합니다.
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         if (fileInput.files.length === 0) {
@@ -41,6 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // 상태를 확인하는 함수
     function checkStatus(taskId) {
         fetch(`/status/${taskId}`)
         .then(response => response.json())
@@ -67,6 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // 진행 바를 업데이트하는 함수
     function updateProgressBar() {
         if (currentProgress < targetProgress) {
             currentProgress += (targetProgress - currentProgress) * 0.1;
@@ -75,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // 폼을 초기화하는 함수
     function resetForm() {
         convertBtn.style.display = 'block';
         progressContainer.style.display = 'none';

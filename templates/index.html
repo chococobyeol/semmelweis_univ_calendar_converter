@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendar Converter</title>
+    <!-- 스타일시트를 링크합니다. -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
         <h1>Calendar Converter</h1>
         <p class="subtext">for Semmelweis Univ.</p>
+        <!-- 파일 업로드 폼을 정의합니다. -->
         <form id="upload-form" action="/" method="post" enctype="multipart/form-data">
             <input type="file" name="file" accept=".ics" id="file-input">
             <div id="button-container">
@@ -22,11 +24,13 @@
             </div>
         </form>
     </div>
+    <!-- 커피 후원 버튼을 추가합니다. -->
     <div class="coffee-container">
         <a href="https://www.buymeacoffee.com/chococo" target="_blank">
             <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;">
         </a>
     </div>
+    <!-- 자바스크립트 파일을 링크합니다. -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

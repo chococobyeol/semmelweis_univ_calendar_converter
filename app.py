@@ -1,3 +1,4 @@
+# 필요한 라이브러리 및 모듈을 임포트합니다.
 import os
 import re
 import uuid
@@ -10,20 +11,25 @@ from icalendar import Calendar
 from collections import OrderedDict
 from flask import Flask, request, render_template, send_file, jsonify
 
+# 로깅 설정을 구성하고 로거를 초기화합니다.
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# 최대 작업 수와 작업 큐 및 결과를 저장할 자료 구조를 설정합니다.
 MAX_TASKS = 100
 task_queue = OrderedDict()
 task_results = OrderedDict()
 task_progress = OrderedDict()
 queue_lock = threading.Lock()
 
-CLASSROOM_DATA = []  # Store classroom data in memory
+# 교실 데이터를 저장할 리스트 초기화
+CLASSROOM_DATA = []  # 메모리에 교실 데이터를 저장
 
+# 최대 재시도 횟수 및 재시도 간격 설정
 MAX_RETRIES = 5
 RETRY_DELAY = 5
 
+# 교실 정보를 가져오는 함수
 def fetch_classroom_info(classroom_name):
     logger.debug(f"Searching for classroom: {classroom_name}")
     for classroom in CLASSROOM_DATA:
@@ -33,6 +39,7 @@ def fetch_classroom_info(classroom_name):
     logger.debug(f"No match found for classroom: {classroom_name}")
     return None, None, None, None
 
+# 달력을 처리하는 함수
 def process_calendar(temp_file_path, task_id):
     try:
         logger.debug(f"Starting to process calendar for task {task_id}")
@@ -41,12 +48,14 @@ def process_calendar(temp_file_path, task_id):
 
         new_cal = Calendar()
 
+        # VEVENT 컴포넌트를 추출
         events = [component for component in cal.walk() if component.name == "VEVENT"]
         total_events = len(events)
         processed_events = 0
 
         logger.debug(f"Total events to process: {total_events}")
 
+        # 각 이벤트를 처리
         for component in events:
             location = component.get('LOCATION')
             if location:
@@ -84,6 +93,7 @@ def process_calendar(temp_file_path, task_id):
             if task_id in task_queue:
                 del task_queue[task_id]
 
+# 교실 데이터를 가져오는 함수
 def fetch_classroom_data():
     url = "https://semmelweis.hu/registrar/information/classroom-finder/"
     for attempt in range(MAX_RETRIES):
@@ -102,6 +112,7 @@ def fetch_classroom_data():
                 logger.error("Maximum retries reached. Failed to fetch data.")
     return None
 
+# 교실 데이터를 파싱하는 함수
 def parse_classroom_data(html):
     soup = BeautifulSoup(html, 'html.parser')
     results = soup.select("#tablepress-16 > tbody > tr")
@@ -124,6 +135,7 @@ def parse_classroom_data(html):
     
     return data
 
+# 데이터를 초기화하고 업데이트하는 함수
 def initialize_and_update_data():
     global CLASSROOM_DATA
     logger.info("Starting classroom data initialization and update")
@@ -136,12 +148,14 @@ def initialize_and_update_data():
         logger.error("Failed to fetch classroom data after multiple retries.")
     logger.info("Classroom data initialization and update completed")
 
+# 주기적으로 데이터를 업데이트하는 함수
 def update_data_periodically(interval):
     while True:
         initialize_and_update_data()
         logger.info(f"Sleeping for {interval} seconds before the next update.")
         time.sleep(interval)
 
+# Flask 애플리케이션을 생성하는 함수
 def create_app():
     app = Flask(__name__)
 
@@ -149,8 +163,8 @@ def create_app():
         logger.info("Initializing application data...")
         initialize_and_update_data()
         
-        # Wait for the data to be loaded
-        timeout = 60  # 60 seconds timeout
+        # 데이터가 로드될 때까지 대기
+        timeout = 60  # 60초 타임아웃
         start_time = time.time()
         while not CLASSROOM_DATA:
             if time.time() - start_time > timeout:
@@ -164,12 +178,12 @@ def create_app():
         else:
             logger.error("Failed to load classroom data")
 
-        # Start the periodic update thread
-        update_interval = 300  # 5 minutes in seconds
+        # 주기적인 업데이트 스레드 시작
+        update_interval = 300  # 5분(300초)
         update_thread = threading.Thread(target=update_data_periodically, args=(update_interval,), daemon=True)
         update_thread.start()
 
-    # Initialize data when the app is created
+    # 애플리케이션 생성 시 데이터 초기화
     initialize_data()
 
     @app.route('/', methods=['GET', 'POST'])
@@ -205,7 +219,7 @@ def create_app():
                         del task_queue[oldest_task]
                         del task_progress[oldest_task]
                     
-                    # Start processing the calendar immediately in a new thread
+                    # 새로운 스레드에서 달력 처리를 즉시 시작
                     threading.Thread(target=process_calendar, args=(temp_file_path, task_id)).start()
                     
                     return jsonify({'task_id': task_id})
@@ -245,9 +259,10 @@ def create_app():
 
     return app
 
-# Create the Flask app
+# Flask 앱을 생성
 app = create_app()
 
+# 애플리케이션이 직접 실행될 때 실행
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
