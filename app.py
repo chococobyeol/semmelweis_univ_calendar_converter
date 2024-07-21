@@ -81,13 +81,11 @@ def process_calendar(temp_file_path, task_id):
 def run_worker():
     while True:
         try:
+            logger.debug(f"Worker thread running. Current task queue: {list(task_queue.keys())}")
             if task_queue:
-                logger.debug(f"Current task queue: {list(task_queue.keys())}")
-                for task_id, file_path in list(task_queue.items()):
-                    if task_id not in task_results:
-                        logger.debug(f"Starting to process task {task_id}")
-                        process_calendar(file_path, task_id)
-                        break  # Ensure only one task is processed at a time
+                task_id, file_path = next(iter(task_queue.items()))
+                logger.debug(f"Processing task {task_id}")
+                process_calendar(file_path, task_id)
             else:
                 logger.debug("No tasks in queue. Worker thread sleeping.")
             time.sleep(5)
