@@ -9,16 +9,17 @@ import threading
 import uuid
 import time
 import logging
+from collections import OrderedDict
 
 app = Flask(__name__)
 
-# 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-task_queue = {}
-task_results = {}
-task_progress = {}
+MAX_TASKS = 100
+task_queue = OrderedDict()
+task_results = OrderedDict()
+task_progress = OrderedDict()
 
 def fetch_classroom_info(classroom_name):
     try:
@@ -97,18 +98,23 @@ def process_calendar(temp_file_path, task_id):
     except Exception as e:
         logger.error(f"Error processing calendar for task {task_id}: {e}")
         task_results[task_id] = None
+    finally:
+        if task_id in task_queue:
+            del task_queue[task_id]
 
 def worker():
     while True:
-        for task_id, file_path in list(task_queue.items()):
-            if task_id not in task_results:
-                logger.info(f"Starting to process task {task_id}")
-                process_calendar(file_path, task_id)
-                del task_queue[task_id]
-        time.sleep(1)
+        try:
+            for task_id, file_path in list(task_queue.items()):
+                if task_id not in task_results:
+                    logger.info(f"Starting to process task {task_id}")
+                    process_calendar(file_path, task_id)
+            time.sleep(1)
+        except Exception as e:
+            logger.error(f"Error in worker thread: {e}")
 
-# 워커 스레드 시작
-threading.Thread(target=worker, daemon=True).start()
+worker_thread = threading.Thread(target=worker, daemon=True)
+worker_thread.start()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -128,6 +134,13 @@ def index():
 
             task_id = str(uuid.uuid4())
             task_queue[task_id] = temp_file_path
+            task_progress[task_id] = 0
+            
+            if len(task_queue) > MAX_TASKS:
+                oldest_task = next(iter(task_queue))
+                del task_queue[oldest_task]
+                del task_progress[oldest_task]
+            
             logger.info(f"Created task {task_id} for file {file.filename}")
             return jsonify({'task_id': task_id})
 
