@@ -1,4 +1,4 @@
-#!/Users/yangyi/calenderconverter/venv/bin/python3.12
+#!/Users/yangyi/semmelweis_univ_calendar_converter/venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys

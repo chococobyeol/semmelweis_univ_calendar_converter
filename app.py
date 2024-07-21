@@ -247,7 +247,8 @@ if __name__ == '__main__':
     initialize_and_update_db()
 
     # Start periodic updates in the background
-    update_interval = 300  # 5 minutes in seconds
+    update_interval = 300  # 
+        # 5 minutes in seconds
     update_thread = threading.Thread(target=update_db_periodically, args=(update_interval,), daemon=True)
     update_thread.start()
 
