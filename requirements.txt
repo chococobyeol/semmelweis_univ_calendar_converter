@@ -17,5 +17,3 @@ six==1.16.0
 soupsieve==2.5
 urllib3==1.26.19
 Werkzeug==2.0.3
-celery==5.2.3
-redis==4.3.3
