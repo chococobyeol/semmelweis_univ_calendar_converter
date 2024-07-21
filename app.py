@@ -88,16 +88,15 @@ def run_worker():
                 logger.debug(f"Worker thread running. Current task queue: {list(task_queue.keys())}")
                 if task_queue:
                     task_id, file_path = next(iter(task_queue.items()))
-                    logger.debug(f"Processing task {task_id}")
+                    logger.debug(f"Starting to process task {task_id}")
                 else:
                     logger.debug("No tasks in queue. Worker thread sleeping.")
+                    time.sleep(5)
                     continue
 
             process_calendar(file_path, task_id)
         except Exception as e:
             logger.error(f"Error in worker thread: {e}", exc_info=True)
-        finally:
-            time.sleep(5)
 
 worker_thread = threading.Thread(target=run_worker, daemon=True)
 worker_thread.start()
