@@ -27,9 +27,12 @@ MAX_RETRIES = 5
 RETRY_DELAY = 5
 
 def fetch_classroom_info(classroom_name):
+    logger.debug(f"Searching for classroom: {classroom_name}")
     for classroom in CLASSROOM_DATA:
         if classroom_name in classroom[0]:
+            logger.debug(f"Found match: {classroom}")
             return classroom
+    logger.debug(f"No match found for classroom: {classroom_name}")
     return None, None, None, None
 
 def process_calendar(temp_file_path, task_id):
@@ -55,6 +58,10 @@ def process_calendar(temp_file_path, task_id):
                     new_description = f"{classroom_code} - {classroom_details}\nDepartment: {pure_department}"
                     component['LOCATION'] = address_cleaned
                     component['DESCRIPTION'] = new_description
+                    logger.debug(f"Updated location: {address_cleaned}")
+                    logger.debug(f"Updated description: {new_description}")
+                else:
+                    logger.debug(f"No matching classroom info found for location: {location}")
             new_cal.add_component(component)
             
             processed_events += 1
@@ -112,7 +119,7 @@ def index():
                     del task_queue[oldest_task]
                     del task_progress[oldest_task]
                 
-                # 작업 큐에 추가된 후 즉시 작업 처리를 시도
+                # Start processing the calendar immediately in a new thread
                 threading.Thread(target=process_calendar, args=(temp_file_path, task_id)).start()
                 
                 return jsonify({'task_id': task_id})
@@ -193,6 +200,7 @@ def initialize_and_update_data():
     if html:
         CLASSROOM_DATA = parse_classroom_data(html)
         logger.debug(f"Classroom data updated with {len(CLASSROOM_DATA)} records")
+        logger.debug(f"Sample classroom data: {CLASSROOM_DATA[:5]}")  # Log first 5 items
     else:
         logger.error("Failed to fetch classroom data after multiple retries.")
     logger.debug("Classroom data initialization and update completed")
