@@ -1,19 +1,16 @@
-from flask import Flask, request, render_template, send_file, jsonify
-from icalendar import Calendar
-import aiohttp
-import asyncio
-from bs4 import BeautifulSoup
-import tempfile
 import os
 import re
-import threading
 import uuid
-import logging
-from collections import OrderedDict
-from functools import lru_cache
-import sqlite3
-import requests
 import time
+import sqlite3
+import logging
+import tempfile
+import threading
+import requests
+from bs4 import BeautifulSoup
+from icalendar import Calendar
+from collections import OrderedDict
+from flask import Flask, request, render_template, send_file, jsonify
 
 app = Flask(__name__)
 
@@ -26,10 +23,10 @@ task_results = OrderedDict()
 task_progress = OrderedDict()
 
 DB_PATH = 'classrooms.db'
-MAX_RETRIES = 5  # 최대 재시도 횟수
-RETRY_DELAY = 5  # 재시도 대기 시간 (초)
+MAX_RETRIES = 5
+RETRY_DELAY = 5
 
-async def fetch_classroom_info_from_db(classroom_name):
+def fetch_classroom_info_from_db(classroom_name):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT * FROM classrooms WHERE classroom_code LIKE ?", (f"%{classroom_name}%",))
@@ -40,7 +37,7 @@ async def fetch_classroom_info_from_db(classroom_name):
     else:
         return None, None, None, None
 
-async def process_calendar(temp_file_path, task_id):
+def process_calendar(temp_file_path, task_id):
     try:
         logger.debug(f"Starting to process calendar for task {task_id}")
         with open(temp_file_path, 'rb') as f:
@@ -58,7 +55,7 @@ async def process_calendar(temp_file_path, task_id):
             location = component.get('LOCATION')
             if location:
                 logger.debug(f"Processing event with location: {location}")
-                classroom_code, classroom_details, pure_department, address_cleaned = await fetch_classroom_info_from_db(location)
+                classroom_code, classroom_details, pure_department, address_cleaned = fetch_classroom_info_from_db(location)
                 if address_cleaned:
                     new_description = f"{classroom_code} - {classroom_details}\nDepartment: {pure_department}"
                     component['LOCATION'] = address_cleaned
@@ -71,7 +68,7 @@ async def process_calendar(temp_file_path, task_id):
             logger.debug(f"Task {task_id}: Processed {processed_events}/{total_events} events. Progress: {progress}%")
 
             if processed_events % 10 == 0:
-                await asyncio.sleep(0.1)
+                time.sleep(0.1)
 
         output_file_path = tempfile.mktemp(suffix='.ics')
         with open(output_file_path, 'wb') as f:
@@ -87,25 +84,20 @@ async def process_calendar(temp_file_path, task_id):
             del task_queue[task_id]
 
 def run_worker():
-    async def async_worker():
-        while True:
-            try:
-                if task_queue:
-                    logger.debug(f"Current task queue: {list(task_queue.keys())}")
-                    for task_id, file_path in list(task_queue.items()):
-                        if task_id not in task_results:
-                            logger.debug(f"Starting to process task {task_id}")
-                            await process_calendar(file_path, task_id)
-                            break  # Ensure only one task is processed at a time
-                else:
-                    logger.debug("No tasks in queue. Worker thread sleeping.")
-                await asyncio.sleep(5)
-            except Exception as e:
-                logger.error(f"Error in worker thread: {e}", exc_info=True)
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(async_worker())
+    while True:
+        try:
+            if task_queue:
+                logger.debug(f"Current task queue: {list(task_queue.keys())}")
+                for task_id, file_path in list(task_queue.items()):
+                    if task_id not in task_results:
+                        logger.debug(f"Starting to process task {task_id}")
+                        process_calendar(file_path, task_id)
+                        break  # Ensure only one task is processed at a time
+            else:
+                logger.debug("No tasks in queue. Worker thread sleeping.")
+            time.sleep(5)
+        except Exception as e:
+            logger.error(f"Error in worker thread: {e}", exc_info=True)
 
 worker_thread = threading.Thread(target=run_worker, daemon=True)
 worker_thread.start()
@@ -113,31 +105,34 @@ worker_thread.start()
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
+        logger.debug("POST request received")
         if 'file' not in request.files:
             logger.warning("No file part in the request")
             return jsonify({'error': 'No file part'})
         file = request.files['file']
+        logger.debug(f"File received: {file.filename}")
         if file.filename == '':
             logger.warning("No selected file")
             return jsonify({'error': 'No selected file'})
         if file and file.filename.endswith('.ics'):
-            logger.debug(f"Received file: {file.filename}")
+            logger.debug(f"Processing file: {file.filename}")
             with tempfile.NamedTemporaryFile(delete=False, suffix='.ics') as temp_file:
                 file.save(temp_file.name)
                 temp_file_path = temp_file.name
-
+            logger.debug(f"File saved to temporary path: {temp_file_path}")
+            
             task_id = str(uuid.uuid4())
             task_queue[task_id] = temp_file_path
             task_progress[task_id] = 0
             
-            logger.debug(f"Task queue: {task_queue}")
+            logger.debug(f"Task created: {task_id}")
+            logger.debug(f"Current task queue: {task_queue}")
             
             if len(task_queue) > MAX_TASKS:
                 oldest_task = next(iter(task_queue))
                 del task_queue[oldest_task]
                 del task_progress[oldest_task]
             
-            logger.debug(f"Created task {task_id} for file {file.filename}")
             return jsonify({'task_id': task_id})
 
     return render_template('index.html')
@@ -175,7 +170,7 @@ def fetch_classroom_data():
     for attempt in range(MAX_RETRIES):
         try:
             response = requests.get(url, timeout=60)
-            response.raise_for_status()  # 상태 코드가 200이 아닐 경우 예외 발생
+            response.raise_for_status()
             return response.text
         except requests.RequestException as e:
             logger.error(f"Error fetching data: {e}")
@@ -226,15 +221,17 @@ def update_database(data):
     conn.close()
 
 def initialize_and_update_db():
+    logger.debug("Starting database initialization and update")
     initialize_database()
     logger.debug("Fetching classroom data...")
     html = fetch_classroom_data()
     if html:
         data = parse_classroom_data(html)
         update_database(data)
-        logger.debug("Database initialized and updated successfully.")
+        logger.debug(f"Database updated with {len(data)} records")
     else:
         logger.error("Failed to fetch classroom data after multiple retries.")
+    logger.debug("Database initialization and update completed")
 
 def update_db_periodically(interval):
     while True:
@@ -243,14 +240,11 @@ def update_db_periodically(interval):
         time.sleep(interval)
 
 if __name__ == '__main__':
-    # Initial DB setup and update
+    logger.debug("Application starting")
     initialize_and_update_db()
 
-    # Start periodic updates in the background
-    update_interval = 300  # 
-        # 5 minutes in seconds
+    update_interval = 300  # 5 minutes in seconds
     update_thread = threading.Thread(target=update_db_periodically, args=(update_interval,), daemon=True)
     update_thread.start()
 
-    # Start the Flask app
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5001)), debug=False)
