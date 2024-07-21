@@ -97,6 +97,7 @@ def run_worker():
             process_calendar(file_path, task_id)
         except Exception as e:
             logger.error(f"Error in worker thread: {e}", exc_info=True)
+        time.sleep(1)  # Add a small delay to prevent excessive CPU usage
 
 worker_thread = threading.Thread(target=run_worker, daemon=True)
 worker_thread.start()
