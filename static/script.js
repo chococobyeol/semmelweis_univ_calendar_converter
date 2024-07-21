@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressText = document.getElementById('progress-text');
     const fileInput = document.getElementById('file-input');
 
+    let currentProgress = 0;
+    let targetProgress = 0;
+
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         if (fileInput.files.length === 0) {
@@ -16,6 +19,9 @@ document.addEventListener('DOMContentLoaded', function() {
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
         progressText.textContent = 'Uploading and processing...';
+
+        currentProgress = 0;
+        targetProgress = 0;
 
         const formData = new FormData(form);
         fetch('/', {
@@ -40,17 +46,19 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.state === 'SUCCESS') {
-                progressBar.style.width = '100%';
+                targetProgress = 100;
+                updateProgressBar();
                 progressText.textContent = 'Processing complete. Downloading...';
                 window.location.href = `/download/${taskId}`;
-                resetForm();
+                setTimeout(resetForm, 3000);
             } else if (data.state === 'FAILURE') {
                 alert('An error occurred during the conversion process.');
                 resetForm();
             } else {
-                progressBar.style.width = `${data.progress}%`;
-                progressText.textContent = `Processing... ${data.progress}% complete. This may take several minutes.`;
-                setTimeout(() => checkStatus(taskId), 5000);
+                targetProgress = data.progress;
+                updateProgressBar();
+                progressText.textContent = `Processing... ${Math.round(currentProgress)}% complete. This may take several minutes.`;
+                setTimeout(() => checkStatus(taskId), 1000);
             }
         }).catch(error => {
             console.error('Error:', error);
@@ -59,10 +67,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function updateProgressBar() {
+        if (currentProgress < targetProgress) {
+            currentProgress += (targetProgress - currentProgress) * 0.1;
+            progressBar.style.width = `${currentProgress}%`;
+            requestAnimationFrame(updateProgressBar);
+        }
+    }
+
     function resetForm() {
         convertBtn.style.display = 'block';
         progressContainer.style.display = 'none';
         progressBar.style.width = '0%';
         fileInput.value = '';
+        currentProgress = 0;
+        targetProgress = 0;
     }
 });
