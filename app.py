@@ -3,7 +3,6 @@ import re
 import uuid
 import time
 import logging
-import tempfile
 import threading
 import requests
 from bs4 import BeautifulSoup
