@@ -2,7 +2,6 @@ import os
 import re
 import uuid
 import time
-import sqlite3
 import logging
 import tempfile
 import threading
@@ -22,20 +21,16 @@ task_queue = OrderedDict()
 task_results = OrderedDict()
 task_progress = OrderedDict()
 
-DB_PATH = 'classrooms.db'
+CLASSROOM_DATA = []  # Store classroom data in memory
+
 MAX_RETRIES = 5
 RETRY_DELAY = 5
 
-def fetch_classroom_info_from_db(classroom_name):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT * FROM classrooms WHERE classroom_code LIKE ?", (f"%{classroom_name}%",))
-    result = c.fetchone()
-    conn.close()
-    if result:
-        return result
-    else:
-        return None, None, None, None
+def fetch_classroom_info(classroom_name):
+    for classroom in CLASSROOM_DATA:
+        if classroom_name in classroom[0]:
+            return classroom
+    return None, None, None, None
 
 def process_calendar(temp_file_path, task_id):
     try:
@@ -55,7 +50,7 @@ def process_calendar(temp_file_path, task_id):
             location = component.get('LOCATION')
             if location:
                 logger.debug(f"Processing event with location: {location}")
-                classroom_code, classroom_details, pure_department, address_cleaned = fetch_classroom_info_from_db(location)
+                classroom_code, classroom_details, pure_department, address_cleaned = fetch_classroom_info(location)
                 if address_cleaned:
                     new_description = f"{classroom_code} - {classroom_details}\nDepartment: {pure_department}"
                     component['LOCATION'] = address_cleaned
@@ -116,24 +111,28 @@ def index():
             return jsonify({'error': 'No selected file'})
         if file and file.filename.endswith('.ics'):
             logger.debug(f"Processing file: {file.filename}")
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.ics') as temp_file:
-                file.save(temp_file.name)
-                temp_file_path = temp_file.name
-            logger.debug(f"File saved to temporary path: {temp_file_path}")
-            
-            task_id = str(uuid.uuid4())
-            task_queue[task_id] = temp_file_path
-            task_progress[task_id] = 0
-            
-            logger.debug(f"Task created: {task_id}")
-            logger.debug(f"Current task queue: {task_queue}")
-            
-            if len(task_queue) > MAX_TASKS:
-                oldest_task = next(iter(task_queue))
-                del task_queue[oldest_task]
-                del task_progress[oldest_task]
-            
-            return jsonify({'task_id': task_id})
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.ics') as temp_file:
+                    file.save(temp_file.name)
+                    temp_file_path = temp_file.name
+                logger.debug(f"File saved to temporary path: {temp_file_path}")
+                
+                task_id = str(uuid.uuid4())
+                task_queue[task_id] = temp_file_path
+                task_progress[task_id] = 0
+                
+                logger.debug(f"Task created: {task_id}")
+                logger.debug(f"Current task queue: {task_queue}")
+                
+                if len(task_queue) > MAX_TASKS:
+                    oldest_task = next(iter(task_queue))
+                    del task_queue[oldest_task]
+                    del task_progress[oldest_task]
+                
+                return jsonify({'task_id': task_id})
+            except Exception as e:
+                logger.error(f"Error processing file: {e}", exc_info=True)
+                return jsonify({'error': 'Error processing file'})
 
     return render_template('index.html')
 
@@ -201,50 +200,30 @@ def parse_classroom_data(html):
     
     return data
 
-def initialize_database():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS classrooms (
-                 classroom_code TEXT,
-                 classroom_details TEXT,
-                 pure_department TEXT,
-                 address_cleaned TEXT)''')
-    conn.commit()
-    conn.close()
-
-def update_database(data):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('DELETE FROM classrooms')
-    c.executemany('INSERT INTO classrooms VALUES (?, ?, ?, ?)', data)
-    conn.commit()
-    conn.close()
-
-def initialize_and_update_db():
-    logger.debug("Starting database initialization and update")
-    initialize_database()
-    logger.debug("Fetching classroom data...")
+def initialize_and_update_data():
+    global CLASSROOM_DATA
+    logger.debug("Starting classroom data initialization and update")
     html = fetch_classroom_data()
     if html:
-        data = parse_classroom_data(html)
-        update_database(data)
-        logger.debug(f"Database updated with {len(data)} records")
+        CLASSROOM_DATA = parse_classroom_data(html)
+        logger.debug(f"Classroom data updated with {len(CLASSROOM_DATA)} records")
     else:
         logger.error("Failed to fetch classroom data after multiple retries.")
-    logger.debug("Database initialization and update completed")
+    logger.debug("Classroom data initialization and update completed")
 
-def update_db_periodically(interval):
+def update_data_periodically(interval):
     while True:
-        initialize_and_update_db()
+        initialize_and_update_data()
         logger.debug(f"Sleeping for {interval} seconds before the next update.")
         time.sleep(interval)
 
 if __name__ == '__main__':
     logger.debug("Application starting")
-    initialize_and_update_db()
+    initialize_and_update_data()
 
     update_interval = 300  # 5 minutes in seconds
-    update_thread = threading.Thread(target=update_db_periodically, args=(update_interval,), daemon=True)
+    update_thread = threading.Thread(target=update_data_periodically, args=(update_interval,), daemon=True)
     update_thread.start()
 
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5001)), debug=False)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=False)
