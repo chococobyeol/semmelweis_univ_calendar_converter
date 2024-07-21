@@ -10,8 +10,6 @@ from icalendar import Calendar
 from collections import OrderedDict
 from flask import Flask, request, render_template, send_file, jsonify
 
-app = Flask(__name__)
-
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -86,77 +84,6 @@ def process_calendar(temp_file_path, task_id):
             if task_id in task_queue:
                 del task_queue[task_id]
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    global task_queue
-    if request.method == 'POST':
-        logger.debug("POST request received")
-        if 'file' not in request.files:
-            logger.warning("No file part in the request")
-            return jsonify({'error': 'No file part'})
-        file = request.files['file']
-        logger.debug(f"File received: {file.filename}")
-        if file.filename == '':
-            logger.warning("No selected file")
-            return jsonify({'error': 'No selected file'})
-        if file and file.filename.endswith('.ics'):
-            logger.debug(f"Processing file: {file.filename}")
-            try:
-                temp_file_path = os.path.join('/tmp', f'{uuid.uuid4()}.ics')
-                file.save(temp_file_path)
-                logger.debug(f"File saved to temporary path: {temp_file_path}")
-                
-                task_id = str(uuid.uuid4())
-                with queue_lock:
-                    task_queue[task_id] = temp_file_path
-                    task_progress[task_id] = 0
-                
-                logger.debug(f"Task created: {task_id}")
-                logger.debug(f"Current task queue: {task_queue}")
-                
-                if len(task_queue) > MAX_TASKS:
-                    oldest_task = next(iter(task_queue))
-                    del task_queue[oldest_task]
-                    del task_progress[oldest_task]
-                
-                # Start processing the calendar immediately in a new thread
-                threading.Thread(target=process_calendar, args=(temp_file_path, task_id)).start()
-                
-                return jsonify({'task_id': task_id})
-            except Exception as e:
-                logger.error(f"Error processing file: {e}", exc_info=True)
-                return jsonify({'error': 'Error processing file'})
-
-    return render_template('index.html')
-
-@app.route('/status/<task_id>')
-def task_status(task_id):
-    logger.debug(f"Checking status for task {task_id}")
-    if task_id in task_results:
-        if task_results[task_id]:
-            logger.debug(f"Task {task_id} completed successfully")
-            return jsonify({'state': 'SUCCESS', 'progress': 100})
-        else:
-            logger.warning(f"Task {task_id} failed")
-            return jsonify({'state': 'FAILURE', 'progress': 0})
-    elif task_id in task_queue:
-        progress = task_progress.get(task_id, 0)
-        logger.debug(f"Task {task_id} is pending. Progress: {progress}%")
-        return jsonify({'state': 'PENDING', 'progress': progress})
-    else:
-        logger.warning(f"Unknown task {task_id}")
-        return jsonify({'state': 'UNKNOWN', 'progress': 0})
-
-@app.route('/download/<task_id>')
-def download_file(task_id):
-    logger.debug(f"Download requested for task {task_id}")
-    if task_id in task_results and task_results[task_id]:
-        output_file_path = task_results[task_id]
-        logger.debug(f"Sending file for task {task_id}")
-        return send_file(output_file_path, as_attachment=True, download_name='updated_calendar.ics')
-    logger.warning(f"File not ready or task failed for task {task_id}")
-    return jsonify({'error': 'File not ready or task failed'})
-
 def fetch_classroom_data():
     url = "https://semmelweis.hu/registrar/information/classroom-finder/"
     for attempt in range(MAX_RETRIES):
@@ -215,20 +142,112 @@ def update_data_periodically(interval):
         logger.info(f"Sleeping for {interval} seconds before the next update.")
         time.sleep(interval)
 
+def create_app():
+    app = Flask(__name__)
+
+    def initialize_data():
+        logger.info("Initializing application data...")
+        initialize_and_update_data()
+        
+        # Wait for the data to be loaded
+        timeout = 60  # 60 seconds timeout
+        start_time = time.time()
+        while not CLASSROOM_DATA:
+            if time.time() - start_time > timeout:
+                logger.error("Timeout while waiting for classroom data to be loaded.")
+                break
+            logger.info("Waiting for classroom data to be loaded...")
+            time.sleep(5)
+        
+        if CLASSROOM_DATA:
+            logger.info(f"Classroom data loaded with {len(CLASSROOM_DATA)} records")
+        else:
+            logger.error("Failed to load classroom data")
+
+        # Start the periodic update thread
+        update_interval = 300  # 5 minutes in seconds
+        update_thread = threading.Thread(target=update_data_periodically, args=(update_interval,), daemon=True)
+        update_thread.start()
+
+    # Initialize data when the app is created
+    initialize_data()
+
+    @app.route('/', methods=['GET', 'POST'])
+    def index():
+        global task_queue
+        if request.method == 'POST':
+            logger.debug("POST request received")
+            if 'file' not in request.files:
+                logger.warning("No file part in the request")
+                return jsonify({'error': 'No file part'})
+            file = request.files['file']
+            logger.debug(f"File received: {file.filename}")
+            if file.filename == '':
+                logger.warning("No selected file")
+                return jsonify({'error': 'No selected file'})
+            if file and file.filename.endswith('.ics'):
+                logger.debug(f"Processing file: {file.filename}")
+                try:
+                    temp_file_path = os.path.join('/tmp', f'{uuid.uuid4()}.ics')
+                    file.save(temp_file_path)
+                    logger.debug(f"File saved to temporary path: {temp_file_path}")
+                    
+                    task_id = str(uuid.uuid4())
+                    with queue_lock:
+                        task_queue[task_id] = temp_file_path
+                        task_progress[task_id] = 0
+                    
+                    logger.debug(f"Task created: {task_id}")
+                    logger.debug(f"Current task queue: {task_queue}")
+                    
+                    if len(task_queue) > MAX_TASKS:
+                        oldest_task = next(iter(task_queue))
+                        del task_queue[oldest_task]
+                        del task_progress[oldest_task]
+                    
+                    # Start processing the calendar immediately in a new thread
+                    threading.Thread(target=process_calendar, args=(temp_file_path, task_id)).start()
+                    
+                    return jsonify({'task_id': task_id})
+                except Exception as e:
+                    logger.error(f"Error processing file: {e}", exc_info=True)
+                    return jsonify({'error': 'Error processing file'})
+
+        return render_template('index.html')
+
+    @app.route('/status/<task_id>')
+    def task_status(task_id):
+        logger.debug(f"Checking status for task {task_id}")
+        if task_id in task_results:
+            if task_results[task_id]:
+                logger.debug(f"Task {task_id} completed successfully")
+                return jsonify({'state': 'SUCCESS', 'progress': 100})
+            else:
+                logger.warning(f"Task {task_id} failed")
+                return jsonify({'state': 'FAILURE', 'progress': 0})
+        elif task_id in task_queue:
+            progress = task_progress.get(task_id, 0)
+            logger.debug(f"Task {task_id} is pending. Progress: {progress}%")
+            return jsonify({'state': 'PENDING', 'progress': progress})
+        else:
+            logger.warning(f"Unknown task {task_id}")
+            return jsonify({'state': 'UNKNOWN', 'progress': 0})
+
+    @app.route('/download/<task_id>')
+    def download_file(task_id):
+        logger.debug(f"Download requested for task {task_id}")
+        if task_id in task_results and task_results[task_id]:
+            output_file_path = task_results[task_id]
+            logger.debug(f"Sending file for task {task_id}")
+            return send_file(output_file_path, as_attachment=True, download_name='updated_calendar.ics')
+        logger.warning(f"File not ready or task failed for task {task_id}")
+        return jsonify({'error': 'File not ready or task failed'})
+
+    return app
+
+# Create the Flask app
+app = create_app()
+
 if __name__ == '__main__':
-    logger.info("Application starting")
-    initialize_and_update_data()
-
-    update_interval = 300  # 5 minutes in seconds
-    update_thread = threading.Thread(target=update_data_periodically, args=(update_interval,), daemon=True)
-    update_thread.start()
-
-    # Wait for the data to be loaded
-    while not CLASSROOM_DATA:
-        logger.info("Waiting for classroom data to be loaded...")
-        time.sleep(5)
-
-    logger.info(f"Classroom data loaded with {len(CLASSROOM_DATA)} records")
-
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
