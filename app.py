@@ -20,6 +20,7 @@ MAX_TASKS = 100
 task_queue = OrderedDict()
 task_results = OrderedDict()
 task_progress = OrderedDict()
+queue_lock = threading.Lock()
 
 CLASSROOM_DATA = []  # Store classroom data in memory
 
@@ -75,22 +76,27 @@ def process_calendar(temp_file_path, task_id):
         logger.error(f"Error processing calendar for task {task_id}: {e}", exc_info=True)
         task_results[task_id] = None
     finally:
-        if task_id in task_queue:
-            del task_queue[task_id]
+        with queue_lock:
+            if task_id in task_queue:
+                del task_queue[task_id]
 
 def run_worker():
     while True:
         try:
-            logger.debug(f"Worker thread running. Current task queue: {list(task_queue.keys())}")
-            if task_queue:
-                task_id, file_path = next(iter(task_queue.items()))
-                logger.debug(f"Processing task {task_id}")
-                process_calendar(file_path, task_id)
-            else:
-                logger.debug("No tasks in queue. Worker thread sleeping.")
-            time.sleep(5)
+            with queue_lock:
+                logger.debug(f"Worker thread running. Current task queue: {list(task_queue.keys())}")
+                if task_queue:
+                    task_id, file_path = next(iter(task_queue.items()))
+                    logger.debug(f"Processing task {task_id}")
+                else:
+                    logger.debug("No tasks in queue. Worker thread sleeping.")
+                    continue
+
+            process_calendar(file_path, task_id)
         except Exception as e:
             logger.error(f"Error in worker thread: {e}", exc_info=True)
+        finally:
+            time.sleep(5)
 
 worker_thread = threading.Thread(target=run_worker, daemon=True)
 worker_thread.start()
@@ -116,8 +122,9 @@ def index():
                 logger.debug(f"File saved to temporary path: {temp_file_path}")
                 
                 task_id = str(uuid.uuid4())
-                task_queue[task_id] = temp_file_path
-                task_progress[task_id] = 0
+                with queue_lock:
+                    task_queue[task_id] = temp_file_path
+                    task_progress[task_id] = 0
                 
                 logger.debug(f"Task created: {task_id}")
                 logger.debug(f"Current task queue: {task_queue}")
