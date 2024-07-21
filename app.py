@@ -8,10 +8,12 @@ import os
 import re
 import threading
 import uuid
-import time
 import logging
 from collections import OrderedDict
 from functools import lru_cache
+import sqlite3
+import requests
+import time
 
 app = Flask(__name__)
 
@@ -23,53 +25,19 @@ task_queue = OrderedDict()
 task_results = OrderedDict()
 task_progress = OrderedDict()
 
-# 캐시를 위한 딕셔너리
-classroom_info_cache = {}
+DB_PATH = 'classrooms.db'
+MAX_RETRIES = 5  # 최대 재시도 횟수
+RETRY_DELAY = 5  # 재시도 대기 시간 (초)
 
-async def fetch_classroom_info(classroom_name):
-    if classroom_name in classroom_info_cache:
-        return classroom_info_cache[classroom_name]
-
-    try:
-        search_url = f"https://semmelweis.hu/registrar/information/classroom-finder/?search={classroom_name}"
-        logger.debug(f"Fetching info for classroom: {classroom_name}")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(search_url, timeout=10) as res:
-                if res.status != 200:
-                    logger.warning(f"Failed to fetch info for {classroom_name}. Status code: {res.status}")
-                    return None, None, None, None
-                
-                html = await res.text()
-                soup = BeautifulSoup(html, 'html.parser')
-                results = soup.select("#tablepress-16 > tbody > tr")
-                
-                for result in results:
-                    department = result.select_one("td.column-1").get_text(strip=True)
-                    address = result.select_one("td.column-2").get_text(strip=True)
-                    if classroom_name.lower().replace(' ', '') in department.lower().replace(' ', ''):
-                        address_match = re.search(r'\d.*', address)
-                        address_cleaned = address_match.group() if address_match else address
-                        
-                        department_parts = department.split(' - ', 1)
-                        classroom_code = department_parts[0]
-                        classroom_details = department_parts[1] if len(department_parts) > 1 else ""
-                        
-                        pure_department = re.sub(r'\d.*$', '', address).strip()
-                        pure_department = re.sub(r',.*$', '', pure_department).strip()
-                        
-                        logger.debug(f"Info found for {classroom_name}: {classroom_code}, {classroom_details}, {pure_department}, {address_cleaned}")
-                        result = (classroom_code, classroom_details, pure_department, address_cleaned)
-                        classroom_info_cache[classroom_name] = result
-                        return result
-                
-                logger.warning(f"No matching info found for {classroom_name}")
-                classroom_info_cache[classroom_name] = (None, None, None, None)
-                return None, None, None, None
-    except asyncio.TimeoutError:
-        logger.error(f"Timeout occurred while fetching info for {classroom_name}")
-        return None, None, None, None
-    except Exception as e:
-        logger.error(f"Error fetching classroom info for {classroom_name}: {e}")
+async def fetch_classroom_info_from_db(classroom_name):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM classrooms WHERE classroom_code LIKE ?", (f"%{classroom_name}%",))
+    result = c.fetchone()
+    conn.close()
+    if result:
+        return result
+    else:
         return None, None, None, None
 
 async def process_calendar(temp_file_path, task_id):
@@ -90,7 +58,7 @@ async def process_calendar(temp_file_path, task_id):
             location = component.get('LOCATION')
             if location:
                 logger.debug(f"Processing event with location: {location}")
-                classroom_code, classroom_details, pure_department, address_cleaned = await fetch_classroom_info(location)
+                classroom_code, classroom_details, pure_department, address_cleaned = await fetch_classroom_info_from_db(location)
                 if address_cleaned:
                     new_description = f"{classroom_code} - {classroom_details}\nDepartment: {pure_department}"
                     component['LOCATION'] = address_cleaned
@@ -197,5 +165,86 @@ def download_file(task_id):
     logger.warning(f"File not ready or task failed for task {task_id}")
     return jsonify({'error': 'File not ready or task failed'})
 
+def fetch_classroom_data():
+    url = "https://semmelweis.hu/registrar/information/classroom-finder/"
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()  # 상태 코드가 200이 아닐 경우 예외 발생
+            return response.text
+        except requests.RequestException as e:
+            logger.error(f"Error fetching data: {e}")
+            logger.debug(f"Retrying in {RETRY_DELAY} seconds... (Attempt {attempt + 1}/{MAX_RETRIES})")
+            time.sleep(RETRY_DELAY)
+    logger.error("Maximum retries reached. Failed to fetch data.")
+    return None
+
+def parse_classroom_data(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    results = soup.select("#tablepress-16 > tbody > tr")
+    data = []
+
+    for result in results:
+        department = result.select_one("td.column-1").get_text(strip=True)
+        address = result.select_one("td.column-2").get_text(strip=True)
+        address_match = re.search(r'\d.*', address)
+        address_cleaned = address_match.group() if address_match else address
+        
+        department_parts = department.split(' - ', 1)
+        classroom_code = department_parts[0]
+        classroom_details = department_parts[1] if len(department_parts) > 1 else ""
+        
+        pure_department = re.sub(r'\d.*$', '', address).strip()
+        pure_department = re.sub(r',.*$', '', pure_department).strip()
+        
+        data.append((classroom_code, classroom_details, pure_department, address_cleaned))
+    
+    return data
+
+def initialize_database():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS classrooms (
+                 classroom_code TEXT,
+                 classroom_details TEXT,
+                 pure_department TEXT,
+                 address_cleaned TEXT)''')
+    conn.commit()
+    conn.close()
+
+def update_database(data):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('DELETE FROM classrooms')
+    c.executemany('INSERT INTO classrooms VALUES (?, ?, ?, ?)', data)
+    conn.commit()
+    conn.close()
+
+def initialize_and_update_db():
+    initialize_database()
+    logger.debug("Fetching classroom data...")
+    html = fetch_classroom_data()
+    if html:
+        data = parse_classroom_data(html)
+        update_database(data)
+        logger.debug("Database initialized and updated successfully.")
+    else:
+        logger.error("Failed to fetch classroom data after multiple retries.")
+
+def update_db_periodically(interval):
+    while True:
+        initialize_and_update_db()
+        logger.debug(f"Sleeping for {interval} seconds before the next update.")
+        time.sleep(interval)
+
 if __name__ == '__main__':
+    # Initial DB setup and update
+    initialize_and_update_db()
+
+    # Start periodic updates in the background
+    update_interval = 300  # 5 minutes in seconds
+    update_thread = threading.Thread(target=update_db_periodically, args=(update_interval,), daemon=True)
+    update_thread.start()
+
+    # Start the Flask app
     app.run(debug=True)
