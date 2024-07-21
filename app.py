@@ -66,7 +66,7 @@ def process_calendar(temp_file_path, task_id):
             if processed_events % 10 == 0:
                 time.sleep(0.1)
 
-        output_file_path = tempfile.mktemp(suffix='.ics')
+        output_file_path = os.path.join('/tmp', f'{task_id}_output.ics')
         with open(output_file_path, 'wb') as f:
             f.write(new_cal.to_ical())
 
@@ -118,9 +118,8 @@ def index():
         if file and file.filename.endswith('.ics'):
             logger.debug(f"Processing file: {file.filename}")
             try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.ics') as temp_file:
-                    file.save(temp_file.name)
-                    temp_file_path = temp_file.name
+                temp_file_path = os.path.join('/tmp', f'{uuid.uuid4()}.ics')
+                file.save(temp_file_path)
                 logger.debug(f"File saved to temporary path: {temp_file_path}")
                 
                 task_id = str(uuid.uuid4())
