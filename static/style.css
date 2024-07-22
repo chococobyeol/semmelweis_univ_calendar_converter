@@ -222,3 +222,7 @@ a img:hover {
 .help-popup button:hover {
     background-color: #333;
 }
+
+.help-popup a {
+    word-break: break-all;
+}
