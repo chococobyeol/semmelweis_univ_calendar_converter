@@ -4,17 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendar Converter</title>
-    <!-- 파비콘 링크 추가 -->
     <link rel="icon" type="image/png" href="static/favicon.png">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Calendar Converter</h1>
-        <p class="subtext">for Semmelweis Univ.</p>
-        <!-- 파일 업로드 폼을 정의합니다. -->
+        <h1><span class="big-c">C</span>alendar <span class="big-c">C</span>onverter</h1>
+        <p class="subtext">for Semmelweis University</p>
         <form id="upload-form" action="/" method="post" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".ics" id="file-input">
+            <div id="drop-area">
+                <input type="file" name="file" accept=".ics" id="file-input" hidden>
+                <label for="file-input" id="file-label">
+                    <span>Click to browse or<br>Drag & drop your .ics file here</span>
+                </label>
+            </div>
             <div id="button-container">
                 <button type="submit" id="convert-btn">Convert</button>
                 <div id="progress-container" style="display: none;">
@@ -25,13 +28,7 @@
             </div>
         </form>
     </div>
-    <!-- 커피 후원 버튼을 추가합니다. -->
-    <div class="coffee-container">
-        <a href="https://www.buymeacoffee.com/chococo" target="_blank">
-            <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;">
-        </a>
-    </div>
-    <!-- 자바스크립트 파일을 링크합니다. -->
+    <a href="https://www.buymeacoffee.com/chococo"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=chococo&button_colour=ffffff&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

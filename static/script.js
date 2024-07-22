@@ -5,17 +5,86 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressBar = document.getElementById('progress-bar');
     const progressText = document.getElementById('progress-text');
     const fileInput = document.getElementById('file-input');
+    const dropArea = document.getElementById('drop-area');
+    const fileLabel = document.getElementById('file-label');
 
     let currentProgress = 0;
     let targetProgress = 0;
 
-    // 폼 제출 이벤트 리스너를 추가합니다.
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    dropArea.addEventListener('drop', handleDrop, false);
+    fileInput.addEventListener('change', handleFileInputChange);
+
+    dropArea.addEventListener('click', function(e) {
+        if (e.target !== fileInput) {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function highlight() {
+        dropArea.classList.add('dragover');
+    }
+
+    function unhighlight() {
+        dropArea.classList.remove('dragover');
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        // 파일 입력 필드 업데이트
+        const newDt = new DataTransfer();
+        newDt.items.add(files[0]);
+        fileInput.files = newDt.files;
+        
+        handleFiles(files);
+    }
+
+    function handleFileInputChange(e) {
+        handleFiles(e.target.files);
+    }
+
+    function handleFiles(files) {
+        if (files.length > 0) {
+            updateFileLabel(files[0].name);
+        }
+    }
+
+    function updateFileLabel(fileName) {
+        if (fileName) {
+            fileLabel.innerHTML = `<span title="${fileName}">${fileName}</span>`;
+        } else {
+            fileLabel.innerHTML = '<span>Click to browse or<br>Drag & drop your .ics file here</span>';
+        }
+    }
+
     form.addEventListener('submit', function(e) {
         e.preventDefault();
+
         if (fileInput.files.length === 0) {
             alert('Please select a file to upload');
             return;
         }
+
         convertBtn.style.display = 'none';
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
@@ -25,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
         targetProgress = 0;
 
         const formData = new FormData(form);
+
         fetch('/', {
             method: 'POST',
             body: formData
@@ -42,7 +112,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 상태를 확인하는 함수
     function checkStatus(taskId) {
         fetch(`/status/${taskId}`)
         .then(response => response.json())
@@ -69,7 +138,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 진행 바를 업데이트하는 함수
     function updateProgressBar() {
         if (currentProgress < targetProgress) {
             currentProgress += (targetProgress - currentProgress) * 0.1;
@@ -78,12 +146,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 폼을 초기화하는 함수
     function resetForm() {
         convertBtn.style.display = 'block';
         progressContainer.style.display = 'none';
         progressBar.style.width = '0%';
         fileInput.value = '';
+        updateFileLabel();
         currentProgress = 0;
         targetProgress = 0;
     }

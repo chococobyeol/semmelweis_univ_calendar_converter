@@ -1,16 +1,23 @@
-/* 기본 바디 스타일을 설정합니다. */
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap');
+
+:root {
+    --primary-color: #000000;
+    --secondary-color: #f5f7fa;
+    --text-color: #333;
+    --accent-color: #000000;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Quicksand', Arial, sans-serif;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
-    background-color: #f0f0f0;
+    background-color: var(--secondary-color);
 }
 
-/* 컨테이너 스타일을 설정합니다. */
 .container {
     background-color: white;
     padding: 2rem;
@@ -20,22 +27,29 @@ body {
     text-align: center;
 }
 
-/* 헤딩 스타일을 설정합니다. */
 h1 {
-    color: #333;
+    color: var(--text-color);
     margin: 0;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 700;
+    font-size: 1.8em;
+    white-space: nowrap;
 }
 
-/* 서브텍스트 스타일을 설정합니다. */
+.big-c {
+    font-size: 1.2em;
+}
+
 .subtext {
-    font-size: 12px;
+    font-size: 14px;
     color: #555;
     text-align: right;
     margin: 0;
     margin-top: 4px;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 500;
 }
 
-/* 폼 스타일을 설정합니다. */
 form {
     display: flex;
     flex-direction: column;
@@ -43,34 +57,72 @@ form {
     margin-top: 20px;
 }
 
-/* 파일 입력 스타일을 설정합니다. */
-input[type="file"] {
-    padding: 0.5rem;
+#drop-area {
+    border: 2px dashed var(--primary-color);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* 버튼 컨테이너 스타일을 설정합니다. */
+#drop-area:hover, #drop-area.dragover {
+    background-color: #f0f0f0;
+}
+
+#file-label {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    font-size: 14px;
+    color: var(--text-color);
+    text-align: center;
+    overflow: hidden;
+    white-space: normal;
+    word-wrap: break-word;
+    word-break: break-all;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+#file-label span {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 #button-container {
     height: 40px;
 }
 
-/* 버튼 스타일을 설정합니다. */
 button {
     padding: 0.5rem 1rem;
-    background-color: #007bff;
+    background-color: var(--accent-color);
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
     width: 100%;
     height: 100%;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 700;
+    font-size: 1.1em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-/* 버튼 호버 스타일을 설정합니다. */
 button:hover {
-    background-color: #0056b3;
+    background-color: #333;
 }
 
-/* 진행 바 컨테이너 스타일을 설정합니다. */
 #progress-container {
     width: 100%;
     height: 100%;
@@ -79,7 +131,6 @@ button:hover {
     position: relative;
 }
 
-/* 진행 바 스타일을 설정합니다. */
 #progress-bar {
     width: 0%;
     height: 100%;
@@ -88,7 +139,6 @@ button:hover {
     transition: width 0.5s;
 }
 
-/* 진행 텍스트 스타일을 설정합니다. */
 #progress-container #progress-text {
     position: absolute;
     top: 50%;
@@ -100,8 +150,14 @@ button:hover {
     width: 100%;
 }
 
-/* 커피 컨테이너 스타일을 설정합니다. */
-.coffee-container {
-    text-align: center;
+a img {
     margin-top: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+a img:hover {
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
 }
