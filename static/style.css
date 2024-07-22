@@ -155,12 +155,12 @@ a img {
     margin-top: 20px;
     border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     transition: box-shadow 0.3s ease;
 }
 
 a img:hover {
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 8px rgba(0,0,0,0.15);
 }
 
 .help-icon {
@@ -225,4 +225,40 @@ a img:hover {
 
 .help-popup a {
     word-break: break-all;
+}
+
+@media (max-width: 600px) {
+    body {
+        font-size: 14px;
+    }
+
+    .container {
+        width: 90%;
+        max-width: 300px;
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 1.5em;
+    }
+
+    .subtext {
+        font-size: 12px;
+    }
+
+    #drop-area {
+        height: 40px;
+    }
+
+    #file-label {
+        font-size: 12px;
+    }
+
+    #button-container {
+        height: 35px;
+    }
+
+    button {
+        font-size: 0.9em;
+    }
 }

@@ -10,9 +10,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const helpIcon = document.getElementById('help-icon');
     const helpPopup = document.getElementById('help-popup');
     const closePopup = document.getElementById('close-popup');
+    const container = document.querySelector('.container');
 
     let currentProgress = 0;
     let targetProgress = 0;
+
+    // 초기 로드 시 컨테이너 크기 조정
+    adjustContainerSize();
+
+    // 윈도우 리사이즈 시 컨테이너 크기 재조정
+    window.addEventListener('resize', adjustContainerSize);
+
+    function adjustContainerSize() {
+        const windowWidth = window.innerWidth;
+        const containerWidth = container.offsetWidth;
+        if (windowWidth < containerWidth) {
+            const scale = windowWidth / containerWidth;
+            container.style.transform = `scale(${scale})`;
+        } else {
+            container.style.transform = 'none';
+        }
+    }
 
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, preventDefaults, false);
