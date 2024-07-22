@@ -179,7 +179,7 @@ def create_app():
             logger.error("Failed to load classroom data")
 
         # 주기적인 업데이트 스레드 시작
-        update_interval = 300  # 5분(300초)
+        update_interval = 3600  # 1시간(3600초)
         update_thread = threading.Thread(target=update_data_periodically, args=(update_interval,), daemon=True)
         update_thread.start()
 
