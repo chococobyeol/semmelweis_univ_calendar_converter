@@ -27,8 +27,22 @@
                 </div>
             </div>
         </form>
+        <div class="help-icon" id="help-icon">?</div>
     </div>
-    <a href="https://www.buymeacoffee.com/chococo"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=chococo&button_colour=ffffff&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
+    <div id="help-popup" class="help-popup" style="display: none;">
+        <h2>Help</h2>
+        <p>How to use:</p>
+        <ol>
+            <li>Go to the Semmelweis University Neptun Portal and export your calendar in .ics format.<br>
+                Students: <a href="https://neptunweb.semmelweis.hu/hallgato" target="_blank" rel="noopener noreferrer">https://neptunweb.semmelweis.hu/hallgato</a><br>
+                Staff: <a href="https://neptunweb.semmelweis.hu/oktato" target="_blank" rel="noopener noreferrer">https://neptunweb.semmelweis.hu/oktato</a>
+            </li>
+            <li>Upload the .ics file and click convert.</li>
+        </ol>
+        <p style="font-size: 12px;">Quicksand Font License: The Quicksand font used in this project is licensed under the SIL Open Font License (OFL).</p>
+        <button id="close-popup">Close</button>
+    </div>
+    <a href="https://www.buymeacoffee.com/chococo" target="_blank" rel="noopener noreferrer"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=chococo&button_colour=ffffff&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

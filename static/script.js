@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('file-input');
     const dropArea = document.getElementById('drop-area');
     const fileLabel = document.getElementById('file-label');
+    const helpIcon = document.getElementById('help-icon');
+    const helpPopup = document.getElementById('help-popup');
+    const closePopup = document.getElementById('close-popup');
 
     let currentProgress = 0;
     let targetProgress = 0;
@@ -50,12 +53,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleDrop(e) {
         const dt = e.dataTransfer;
         const files = dt.files;
-        
+
         // 파일 입력 필드 업데이트
         const newDt = new DataTransfer();
         newDt.items.add(files[0]);
         fileInput.files = newDt.files;
-        
+
         handleFiles(files);
     }
 
@@ -155,4 +158,23 @@ document.addEventListener('DOMContentLoaded', function() {
         currentProgress = 0;
         targetProgress = 0;
     }
+
+    // Help popup event listeners
+    helpIcon.addEventListener('click', function() {
+        helpPopup.style.display = 'block';
+    });
+
+    closePopup.addEventListener('click', function() {
+        helpPopup.style.display = 'none';
+    });
+
+    helpPopup.addEventListener('click', function(event) {
+        event.stopPropagation();
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target !== helpPopup && !helpPopup.contains(event.target) && event.target !== helpIcon) {
+            helpPopup.style.display = 'none';
+        }
+    });
 });
