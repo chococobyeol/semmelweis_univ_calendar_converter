@@ -195,4 +195,14 @@ document.addEventListener('DOMContentLoaded', function() {
             helpPopup.style.display = 'none';
         }
     });
+
+    // 바이미커피 버튼 업데이트 함수
+    function updateBuyMeCoffeeButton() {
+        const buyMeCoffeeBtn = document.getElementById('buymeacoffee-btn');
+        const timestamp = new Date().getTime(); // 현재 시간을 이용해 캐시 방지
+        buyMeCoffeeBtn.src = `https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=chococo&button_colour=ffffff&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00&t=${timestamp}`;
+    }
+
+    // 페이지 로드 시 바이미커피 버튼 업데이트
+    updateBuyMeCoffeeButton();
 });
