@@ -30,12 +30,14 @@ MAX_RETRIES = 5
 RETRY_DELAY = 5
 
 # 교실 정보를 가져오는 함수
-def fetch_classroom_info(classroom_name):
-    logger.debug(f"Searching for classroom: {classroom_name}")
+def fetch_classroom_info(classroom_name, partial_search=False):
+    logger.debug(f"Searching for classroom: {classroom_name} with partial_search={partial_search}")
     for classroom in CLASSROOM_DATA:
         if classroom_name in classroom[0]:
             logger.debug(f"Found match: {classroom}")
             return classroom
+    if partial_search and len(classroom_name) > 3:
+        return fetch_classroom_info(classroom_name[:-1], partial_search=True)
     logger.debug(f"No match found for classroom: {classroom_name}")
     return None, None, None, None
 
@@ -61,8 +63,16 @@ def process_calendar(temp_file_path, task_id):
             if location:
                 logger.debug(f"Processing event with location: {location}")
                 classroom_code, classroom_details, pure_department, address_cleaned = fetch_classroom_info(location)
+                if not address_cleaned:
+                    # 정확한 매칭이 없을 때, 부분 검색 시도
+                    classroom_code, classroom_details, pure_department, address_cleaned = fetch_classroom_info(location, partial_search=True)
+                    if address_cleaned:
+                        location = f"*{classroom_code}"
+                    else:
+                        location = location
+
                 if address_cleaned:
-                    new_description = f"{classroom_code} - {classroom_details}\nDepartment: {pure_department}"
+                    new_description = f"{location} - {classroom_details}\nDepartment: {pure_department}"
                     component['LOCATION'] = address_cleaned
                     component['DESCRIPTION'] = new_description
                     logger.debug(f"Updated location: {address_cleaned}")
