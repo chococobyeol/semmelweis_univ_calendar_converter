@@ -32,12 +32,19 @@ RETRY_DELAY = 5
 # 교실 정보를 가져오는 함수
 def fetch_classroom_info(classroom_name, partial_search=False):
     logger.debug(f"Searching for classroom: {classroom_name} with partial_search={partial_search}")
+    
+    # 최소 검색 길이를 5글자로 설정합니다
+    MIN_SEARCH_LENGTH = 5
+    
     for classroom in CLASSROOM_DATA:
         if classroom_name in classroom[0]:
             logger.debug(f"Found match: {classroom}")
             return classroom
-    if partial_search and len(classroom_name) > 3:
+    
+    # 부분 검색을 허용하고, 현재 검색 길이가 최소 검색 길이보다 길 때만 재귀 호출
+    if partial_search and len(classroom_name) > MIN_SEARCH_LENGTH:
         return fetch_classroom_info(classroom_name[:-1], partial_search=True)
+    
     logger.debug(f"No match found for classroom: {classroom_name}")
     return None, None, None, None
 
