@@ -74,12 +74,14 @@ def process_calendar(temp_file_path, task_id):
                     # 정확한 매칭이 없을 때, 부분 검색 시도
                     classroom_code, classroom_details, pure_department, address_cleaned = fetch_classroom_info(location, partial_search=True)
                     if address_cleaned:
-                        location = f"*{classroom_code}"
+                        location_display = f"*({location}){classroom_code}"
                     else:
-                        location = location
+                        location_display = location
+                else:
+                    location_display = classroom_code
 
                 if address_cleaned:
-                    new_description = f"{location} - {classroom_details}\nDepartment: {pure_department}"
+                    new_description = f"{location_display} - {classroom_details}\nDepartment: {pure_department}"
                     component['LOCATION'] = address_cleaned
                     component['DESCRIPTION'] = new_description
                     logger.debug(f"Updated location: {address_cleaned}")
